@@ -2,3 +2,4 @@ librosa
 numpy
 torch
 matplotlib
+pretty_midi
