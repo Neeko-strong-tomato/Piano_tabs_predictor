@@ -74,7 +74,7 @@ def load_dataset(data_dir):
 
 
 class NSynthDataset(Dataset):
-    def __init__(self, tfrecord_path, wav_dir, index_path=None, mel_cache_dir="cache/mels"):
+    def __init__(self, tfrecord_path, wav_dir, index_path=None, mel_cache_dir="cache/mels", max_samples=None):
         self.wav_dir = wav_dir
         self.mel_cache_dir = mel_cache_dir
         # Définition du schéma TFRecord
@@ -99,6 +99,8 @@ class NSynthDataset(Dataset):
         missing_files = []
         found = 0
         for i, sample in enumerate(tqdm(self.tfrecord_data, total=self._length)):
+            if max_samples is not None and len(self.samples) >= max_samples:
+                break
             file_id = sample["note_str"].decode("utf-8")
             mel_path = os.path.join(self.mel_cache_dir, file_id + ".npy")
             pitch = sample["pitch"]

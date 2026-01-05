@@ -5,6 +5,10 @@ import torch.nn.functional as F
 #   BASIC METRICS FOR REGRESSION (GLOBAL)
 ##############################################
 
+def accuracy(y_pred, y_true):
+    pred_class = y_pred.argmax(dim=1)
+    return (pred_class == y_true).float().mean().item()
+
 def mae(y_pred, y_true):
     """
     Mean Absolute Error (adapté classification) :
