@@ -3,3 +3,7 @@ numpy
 torch
 matplotlib
 pretty_midi
+pandas
+tfrecord
+torchaudio
+tqdm

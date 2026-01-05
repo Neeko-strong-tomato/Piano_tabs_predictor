@@ -2,6 +2,10 @@ import librosa
 import numpy as np
 import os
 import pretty_midi
+from tfrecord.torch.dataset import TFRecordDataset
+from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+import torch
 
 
 def load_audio(file_path, sr=22050):
@@ -69,10 +73,75 @@ def load_dataset(data_dir):
     return dataset
 
 
+class NSynthDataset(Dataset):
+    def __init__(self, tfrecord_path, wav_dir, index_path=None, mel_cache_dir="cache/mels"):
+        self.wav_dir = wav_dir
+        self.mel_cache_dir = mel_cache_dir
+        # Définition du schéma TFRecord
+        description = {
+            "pitch": "int",
+            "velocity": "int",
+            "instrument": "int",
+            "audio": "float",
+            "note_str": "byte"
+        }
+        self.tfrecord_data = TFRecordDataset(tfrecord_path, index_path, description)
+        # Calculer la longueur à partir du fichier d'index si fourni
+        self._length = None
+        if index_path is not None and os.path.exists(index_path):
+            with open(index_path, 'r') as f:
+                self._length = sum(1 for _ in f)
+
+        # Charger tous les noms de fichiers et labels (pitch)
+        self.samples = []
+        print("Chargement des chemins de spectrogrammes et labels...")
+        missing = 0
+        missing_files = []
+        found = 0
+        for i, sample in enumerate(tqdm(self.tfrecord_data, total=self._length)):
+            file_id = sample["note_str"].decode("utf-8")
+            mel_path = os.path.join(self.mel_cache_dir, file_id + ".npy")
+            pitch = sample["pitch"]
+            if os.path.exists(mel_path):
+                self.samples.append((mel_path, pitch))
+                found += 1
+            else:
+                missing += 1
+                missing_files.append(mel_path)
+        print(f"[DEBUG] {found} fichiers de spectrogrammes trouvés dans le cache.")
+        if missing > 0:
+            print(f"[WARNING] {missing} fichiers de spectrogrammes manquants dans le cache. Exemples:")
+            for m in missing_files[:10]:
+                print(f"  - {m}")
+            if missing > 10:
+                print(f"  ...et {missing-10} autres non affichés.")
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        mel_path, pitch = self.samples[idx]
+        mel = np.load(mel_path)
+        mel = np.expand_dims(mel, axis=0)  # (1, n_mels, time)
+        mel = torch.tensor(mel, dtype=torch.float32)
+        pitch = torch.tensor(pitch, dtype=torch.long)
+        if pitch.dim() > 0:
+            pitch = pitch.squeeze()
+        return mel, pitch
+
+
 # -------------------------
 # MAIN EXECUTION EXAMPLE
 # -------------------------
 if __name__ == "__main__":
+
+    #from tfrecord.tools import tfrecord2idx
+
+    #tfrecord_path = "nsynth-valid.tfrecord"
+    #index_path = "nsynth-valid.idx"
+
+    #tfrecord2idx.create_index(tfrecord_path, index_path)
+
     import matplotlib.pyplot as plt
 
     data_dir = "./src/dataLoader/"  
@@ -81,6 +150,14 @@ if __name__ == "__main__":
     dataset = load_dataset(data_dir)
 
     print(f"Nombre de fichiers trouvés : {len(dataset)}")
+
+    dataset = NSynthDataset(
+        tfrecord_path="nsynth-valid.tfrecord",
+        wav_dir="nsynth-valid/audio",
+        index_path="nsynth-valid.idx"
+    )
+
+    loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
     # Example: inspect one file
     for filename, (mel, midi) in dataset.items():
@@ -102,3 +179,5 @@ if __name__ == "__main__":
         plt.show()
 
         break  # remove if you want to process all files
+
+    

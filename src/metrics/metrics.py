@@ -7,9 +7,19 @@ import torch.nn.functional as F
 
 def mae(y_pred, y_true):
     """
-    Mean Absolute Error
+    Mean Absolute Error (adapté classification) :
+    Moyenne de l'écart absolu entre la classe prédite (argmax) et la vraie classe.
     """
-    return torch.mean(torch.abs(y_pred - y_true)).item()
+    pred_class = y_pred.argmax(dim=1)
+    return torch.mean(torch.abs(pred_class.float() - y_true.float())).item()
+
+def mse(y_pred, y_true):
+    """
+    Mean Squared Error (adapté classification) :
+    Moyenne du carré de l'écart entre la classe prédite (argmax) et la vraie classe.
+    """
+    pred_class = y_pred.argmax(dim=1)
+    return torch.mean((pred_class.float() - y_true.float()) ** 2).item()
 
 
 def rmse(y_pred, y_true):

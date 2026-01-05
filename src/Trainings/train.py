@@ -1,13 +1,17 @@
 import torch
+from tqdm import trange
 
-def train(model, TrainDataLoader, ValDataLoader, criterion, optimizer, num_epochs, metrics=None):
+def train(model, TrainDataLoader, ValDataLoader, criterion, optimizer, num_epochs, metrics=None, device=None):
     model.train()
     history = {'train_loss': [], 'val_loss': [], 'metrics': {metric.__name__: [] for metric in metrics} if metrics else {}}
 
-    for epoch in range(num_epochs):
+    for epoch in trange(num_epochs, desc="Epochs", unit="epoch"):
 
         epoch_loss = 0.0
         for inputs, labels in TrainDataLoader:
+            if device is not None:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -17,12 +21,16 @@ def train(model, TrainDataLoader, ValDataLoader, criterion, optimizer, num_epoch
         epoch_loss /= len(TrainDataLoader.dataset)
         history['train_loss'].append(epoch_loss)
 
+
         # Validation phase
         if ValDataLoader is not None:
             model.eval()
             val_loss = 0.0
             with torch.no_grad():
                 for val_inputs, val_labels in ValDataLoader:
+                    if device is not None:
+                        val_inputs = val_inputs.to(device)
+                        val_labels = val_labels.to(device)
                     val_outputs = model(val_inputs)
                     v_loss = criterion(val_outputs, val_labels)
                     val_loss += v_loss.item() * val_inputs.size(0)
@@ -35,7 +43,6 @@ def train(model, TrainDataLoader, ValDataLoader, criterion, optimizer, num_epoch
                     print(f'{metric.__name__}: {metric_value:.4f}')
                     history['metrics'][metric.__name__].append(metric_value)
             model.train()
-
         else:
             # No validation data provided
             print(f'Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f}, Val Loss: N/A')
