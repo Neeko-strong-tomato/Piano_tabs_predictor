@@ -12,6 +12,7 @@ def plot_training_metrics(history):
     if 'metrics' in history:
         for metric_name, values in history['metrics'].items():
             plt.plot(values, label=f'Val {metric_name}')
+
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.title('Training and Validation Loss Over Epochs')

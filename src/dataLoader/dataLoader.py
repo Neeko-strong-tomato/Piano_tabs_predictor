@@ -74,7 +74,17 @@ def load_dataset(data_dir):
 
 
 class NSynthDataset(Dataset):
-    def __init__(self, tfrecord_path, wav_dir, index_path=None, mel_cache_dir="cache/mels", max_samples=None):
+    def __init__(
+            self,
+            tfrecord_path,
+            wav_dir,
+            index_path=None,
+            mel_cache_dir="cache/mels",
+            max_samples=None,
+            mode="notes"
+        ):
+        
+        self.mode = mode
         self.wav_dir = wav_dir
         self.mel_cache_dir = mel_cache_dir
         # Définition du schéma TFRecord
@@ -82,9 +92,12 @@ class NSynthDataset(Dataset):
             "pitch": "int",
             "velocity": "int",
             "instrument": "int",
+            "instrument_family": "int",
+            "instrument_source": "int",
             "audio": "float",
             "note_str": "byte"
         }
+
         self.tfrecord_data = TFRecordDataset(tfrecord_path, index_path, description)
         # Calculer la longueur à partir du fichier d'index si fourni
         self._length = None
@@ -104,8 +117,11 @@ class NSynthDataset(Dataset):
             file_id = sample["note_str"].decode("utf-8")
             mel_path = os.path.join(self.mel_cache_dir, file_id + ".npy")
             pitch = sample["pitch"]
+            family = sample["instrument_family"]
+            source = sample["instrument_source"]
+
             if os.path.exists(mel_path):
-                self.samples.append((mel_path, pitch))
+                self.samples.append((mel_path, pitch, family, source))
                 found += 1
             else:
                 missing += 1
@@ -122,14 +138,21 @@ class NSynthDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        mel_path, pitch = self.samples[idx]
+        mel_path, pitch, family, source = self.samples[idx]
+
         mel = np.load(mel_path)
-        mel = np.expand_dims(mel, axis=0)  # (1, n_mels, time)
+        mel = np.expand_dims(mel, axis=0)
         mel = torch.tensor(mel, dtype=torch.float32)
-        pitch = torch.tensor(pitch, dtype=torch.long)
-        if pitch.dim() > 0:
-            pitch = pitch.squeeze()
-        return mel, pitch
+
+        if self.mode == "notes":
+            return mel, torch.tensor(pitch, dtype=torch.long)
+
+        elif self.mode == "instrument":
+            return mel, {
+                    "family": torch.tensor(family, dtype=torch.long).squeeze(),
+                    "source": torch.tensor(source, dtype=torch.long).squeeze()
+                }
+
 
 
 # -------------------------

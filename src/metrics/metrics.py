@@ -50,6 +50,11 @@ def r2_score(y_pred, y_true):
 def mae_pitch(y_pred, y_true):
     return torch.mean(torch.abs(y_pred[:, 0] - y_true[:, 0])).item()
 
+def instrument_accuracy(outputs, labels):
+    fam_acc = (outputs["family"].argmax(1) == labels["family"]).float().mean()
+    src_acc = (outputs["source"].argmax(1) == labels["source"]).float().mean()
+    return 0.5 * (fam_acc + src_acc)
+
 
 def mae_velocity(y_pred, y_true):
     return torch.mean(torch.abs(y_pred[:, 1] - y_true[:, 1])).item()

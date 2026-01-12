@@ -20,26 +20,62 @@ x = torch.tensor(S_db, dtype=torch.float32).unsqueeze(0).unsqueeze(0)  # (1, 1, 
 print("Input shape:", x.shape)
 
 class SimpleCNN(nn.Module):
-    def __init__(self,num_notes = 88):
+    def __init__(
+        self,
+        mode="notes",
+        num_notes=127,
+        num_families=10,
+        num_sources=3
+    ):
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 128, kernel_size=(3,3), padding=1)
-        self.conv2 = nn.Conv2d(128, 256, kernel_size=(3,3), padding=1)
-        self.conv3 = nn.Conv2d(256, 256, kernel_size=(3,3), padding=1)
-        self.final_conv = nn.Conv2d(256, num_notes, kernel_size=(1,1))
-        self.pool = nn.MaxPool2d(kernel_size=(2,2))
-        
+        assert mode in ["notes", "instrument"]
+        self.mode = mode
+
+        # ===== Backbone CNN =====
+        self.conv1 = nn.Conv2d(1, 128, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2)
+
+        # ===== Heads =====
+        if self.mode == "notes":
+            # Global pooling → Conv head
+            self.final_conv = nn.Conv2d(256, num_notes, kernel_size=1)
+
+        elif self.mode == "instrument":
+            # Global pooling → MLP heads
+            self.family_head = nn.Linear(256, num_families)
+            self.source_head = nn.Linear(256, num_sources)
 
     def forward(self, x):
+        # ===== Feature extraction =====
         x = F.relu(self.conv1(x))
         x = self.pool(x)
+
         x = F.relu(self.conv2(x))
         x = self.pool(x)
+
         x = F.relu(self.conv3(x))
-        # Final conv → num_notes channels
-        x = self.final_conv(x)
-        # Global average pooling sur les dimensions spatiales (freq, time)
-        x = x.mean(dim=[2,3])  # (batch, num_notes)
-        return x
+
+        # ===== NOTES MODE =====
+        if self.mode == "notes":
+            x = self.final_conv(x)        # (B, num_notes, F, T)
+            x = x.mean(dim=[2, 3])        # Global Avg Pool → (B, num_notes)
+            return x
+
+        # ===== INSTRUMENT MODE =====
+        elif self.mode == "instrument":
+            # Global average pooling
+            x = x.mean(dim=[2, 3])        # (B, 256)
+
+            family_logits = self.family_head(x)   # (B, num_families)
+            source_logits = self.source_head(x)   # (B, 3)
+
+            return {
+                "family": family_logits,
+                "source": source_logits
+            }
+
     
 
 if __name__ == "__main__":
