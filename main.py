@@ -29,7 +29,8 @@ def main():
     model = src.Models.model.SimpleCNN(
                 mode=MODE,
                 num_families=10,
-                num_sources=3
+                num_sources=3,
+                use_batchnorm=True
             ).to(device)
 
     if MODE == "notes":
@@ -39,7 +40,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = torch.nn.CrossEntropyLoss()
 
-    num_epochs = 12
+    num_epochs = 4
     batch_size = 64
     
     data_dir = "./src/dataLoader/"
@@ -47,6 +48,7 @@ def main():
         tfrecord_path="nsynth-valid.tfrecord",
         wav_dir="nsynth-valid/audio",
         index_path="nsynth-valid.idx",
+        mel_cache_dir="cache/mels_aug0.15_0.01",
         max_samples=12678,
         mode=MODE
     )

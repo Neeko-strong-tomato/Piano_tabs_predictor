@@ -25,16 +25,24 @@ class SimpleCNN(nn.Module):
         mode="notes",
         num_notes=127,
         num_families=10,
-        num_sources=3
+        num_sources=3,
+        use_batchnorm=False
     ):
         super().__init__()
         assert mode in ["notes", "instrument"]
         self.mode = mode
+        self.use_batchnorm = use_batchnorm
 
         # ===== Backbone CNN =====
         self.conv1 = nn.Conv2d(1, 128, kernel_size=3, padding=1)
+        if self.use_batchnorm:
+            self.bn1 = nn.BatchNorm2d(128)
         self.conv2 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        if self.use_batchnorm:
+            self.bn2 = nn.BatchNorm2d(256)
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        if self.use_batchnorm:
+            self.bn3 = nn.BatchNorm2d(256)
         self.pool = nn.MaxPool2d(2)
 
         # ===== Heads =====
@@ -50,12 +58,18 @@ class SimpleCNN(nn.Module):
     def forward(self, x):
         # ===== Feature extraction =====
         x = F.relu(self.conv1(x))
+        if self.use_batchnorm:
+            x = self.bn1(x)
         x = self.pool(x)
 
         x = F.relu(self.conv2(x))
+        if self.use_batchnorm:
+            x = self.bn2(x)
         x = self.pool(x)
 
         x = F.relu(self.conv3(x))
+        if self.use_batchnorm:
+            x = self.bn3(x)
 
         # ===== NOTES MODE =====
         if self.mode == "notes":
